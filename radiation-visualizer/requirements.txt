@@ -1,0 +1,7 @@
+streamlit
+pymongo
+pandas
+pydeck
+streamlit-autorefresh
+reverse_geocoder
+pycountry

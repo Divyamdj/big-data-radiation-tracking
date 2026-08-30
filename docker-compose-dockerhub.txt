@@ -1,0 +1,117 @@
+services:
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    ports:
+      - "2181:2181"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    networks:
+      - flink-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    networks:
+      - flink-network
+
+  producer:
+    image: rohant12/bd25_project_a10_c-producer:latest
+    build:
+      context: ./data_provider
+    depends_on:
+      - kafka
+    volumes:
+      - ./data:/data
+    networks:
+      - flink-network
+
+  flink-jobmanager:
+    image: bitnami/zookeeper:latest
+    build:
+      context: ./data_consumer
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+    networks:
+      - flink-network
+
+  flink-taskmanager:
+    image: rohant12/bd25_project_a10_c-flink-taskmanager:latest
+    build:
+      context: ./data_consumer
+      dockerfile: Dockerfile
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+    networks:
+      - flink-network
+
+  mongodb:
+    image: mongo
+    container_name: mongo
+    restart: always
+    ports:
+      - "27017:27017" 
+    volumes:
+      - ./data:/data/db
+      # - mongo-data:/data/db
+    networks:
+      - flink-network
+
+  streamlit:
+    image: rohant12/bd25_project_a10_c-streamlit:latest
+    build:
+      context: ./radiation-visualizer
+    ports:
+      - "8501:8501"
+    depends_on:
+      - mongodb
+    networks:
+      - flink-network
+
+  flink-job-submitter:
+    image: rohant12/bd25_project_a10_c-flink-job-submitter:latest
+    build:
+      context: ./data_consumer
+      dockerfile: Dockerfile
+    depends_on:
+      - flink-jobmanager
+    command: >
+      /opt/flink/bin/flink run -py /opt/flink/lib/radiation_processor.py --jobmanager flink-jobmanager:8081
+    networks:
+      - flink-network
+
+  mongo-uploader:
+    image: rohant12/bd25_project_a10_c-mongo-uploader:latest
+    build:
+      context: ./mongo_uploader
+      dockerfile: Dockerfile
+    restart: on-failure
+    depends_on:
+      - mongodb
+    command: python /opt/flink/lib/mongo_upload.py
+    networks:
+      - flink-network
+      
+networks:
+  flink-network:
+    driver: bridge
+
+# volumes:
+#   mongo-data:

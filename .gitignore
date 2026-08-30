@@ -1,0 +1,15 @@
+# Ignore MongoDB database files
+mongod.lock
+mongo.lock
+*.wt
+*.wtcrc
+WiredTiger*
+*.turtle
+diagnostic.data/
+journal/
+storage.bson
+*.pem
+data/measurements-out.csv
+*.pem
+*.ppk
+data/measurements-out.csv

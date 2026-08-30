@@ -1,0 +1,4 @@
+confluent-kafka
+vaex
+pandas
+datetime
